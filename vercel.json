@@ -1,9 +1,3 @@
 {
-  "cleanUrls": true,
-  "functions": {
-    "api/submit.js": {
-      "runtime": "nodejs20.x",
-      "maxDuration": 10
-    }
-  }
+  "cleanUrls": true
 }
