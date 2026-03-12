@@ -134,6 +134,47 @@ function hasEmailTransportConfig() {
   return Boolean(config.host && config.port);
 }
 
+function logDeliveryError(channel, error) {
+  console.error(`Errore consegna ${channel} SPLit8:`, {
+    message: error?.message,
+    code: error?.code,
+    responseCode: error?.responseCode,
+    command: error?.command,
+    response: error?.response
+  });
+}
+
+function isSmtpAuthDisabledError(error) {
+  const details = [error?.message, error?.response].filter(Boolean).join(' ');
+  return error?.code === 'EAUTH' && /SmtpClientAuthentication is disabled/i.test(details);
+}
+
+function buildDeliveryFailureResponse(error) {
+  const fallbackEmail = process.env.LEADS_TO_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
+
+  if (isSmtpAuthDisabledError(error)) {
+    return {
+      statusCode: 503,
+      payload: {
+        error: fallbackEmail
+          ? `Invio temporaneamente non disponibile. Contattaci direttamente a ${fallbackEmail}.`
+          : 'Invio temporaneamente non disponibile. Riprova piu tardi.',
+        reason: 'smtp_auth_disabled'
+      }
+    };
+  }
+
+  return {
+    statusCode: 500,
+    payload: {
+      error: fallbackEmail
+        ? `Invio non disponibile in questo momento. Contattaci direttamente a ${fallbackEmail}.`
+        : 'Errore interno durante la gestione della richiesta.',
+      reason: 'delivery_unavailable'
+    }
+  };
+}
+
 async function sendLeadEmail(payload) {
   if (!hasEmailTransportConfig()) {
     return { emailed: false, reason: 'smtp_not_configured' };
@@ -239,10 +280,33 @@ module.exports = async function handler(request, response) {
       nome: payload.data.nome
     }));
 
-    const [emailResult, webhookResult] = await Promise.all([
+    const deliveryResults = await Promise.allSettled([
       sendLeadEmail(payload),
       forwardToWebhook(payload)
     ]);
+
+    const emailResult = deliveryResults[0].status === 'fulfilled'
+      ? deliveryResults[0].value
+      : { emailed: false };
+    const webhookResult = deliveryResults[1].status === 'fulfilled'
+      ? deliveryResults[1].value
+      : { forwarded: false };
+
+    const deliveryErrors = deliveryResults
+      .map((result, index) => ({
+        channel: index === 0 ? 'email' : 'webhook',
+        result
+      }))
+      .filter(({ result }) => result.status === 'rejected');
+
+    deliveryErrors.forEach(({ channel, result }) => {
+      logDeliveryError(channel, result.reason);
+    });
+
+    if (deliveryErrors.length > 0 && !emailResult.emailed && !webhookResult.forwarded) {
+      const failure = buildDeliveryFailureResponse(deliveryErrors[0].result.reason);
+      return sendJson(response, failure.statusCode, failure.payload);
+    }
 
     return sendJson(response, 200, {
       ok: true,
