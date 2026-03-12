@@ -1,5 +1,6 @@
 const GITHUB_PAGES_API_BASE = 'https://split8-landing.vercel.app';
 const FORM_ENDPOINT = `${window.location.hostname.endsWith('github.io') ? GITHUB_PAGES_API_BASE : ''}/api/submit`;
+const REQUEST_TIMEOUT_MS = 12000;
 
 function serializeForm(form) {
   const formData = new FormData(form);
@@ -61,12 +62,18 @@ function setStatus(status, message, state) {
 }
 
 async function submitForm(payload) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   const response = await fetch(FORM_ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    signal: controller.signal
+  }).finally(() => {
+    window.clearTimeout(timeoutId);
   });
 
   const result = await response.json().catch(() => ({}));
@@ -82,6 +89,11 @@ function bindForm(formId, formType, successMessage) {
   const form = document.getElementById(formId);
   if (!form) {
     return;
+  }
+
+  const startedAtField = form.querySelector('input[name="formStartedAt"]');
+  if (startedAtField) {
+    startedAtField.value = new Date().toISOString();
   }
 
   const fields = Array.from(form.querySelectorAll('.field'));
@@ -133,10 +145,17 @@ function bindForm(formId, formType, successMessage) {
       console.log('Form inviato:', result);
 
       form.reset();
+      if (startedAtField) {
+        startedAtField.value = new Date().toISOString();
+      }
       clearFormState(form);
       setStatus(status, successMessage, 'is-success');
     } catch (error) {
-      setStatus(status, error.message || 'Errore durante l\'invio.', 'is-error');
+      const message = error.name === 'AbortError'
+        ? 'Il server sta impiegando troppo tempo a rispondere. Riprova tra poco.'
+        : error.message || 'Errore durante l\'invio.';
+
+      setStatus(status, message, 'is-error');
     } finally {
       if (submitButton) {
         submitButton.disabled = false;

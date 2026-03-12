@@ -1,0 +1,17 @@
+{
+  "name": "split8-landing",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Landing page SPLit8 with Vercel serverless form handling",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "check:api": "node --check api/submit.js",
+    "check:frontend": "node --check js/landing.js",
+    "smoke:api": "node scripts/smoke-submit.mjs"
+  },
+  "dependencies": {
+    "nodemailer": "^6.10.1"
+  }
+}
