@@ -1,4 +1,5 @@
-const FORM_ENDPOINT = '/api/submit';
+const GITHUB_PAGES_API_BASE = 'https://split8-landing.vercel.app';
+const FORM_ENDPOINT = `${window.location.hostname.endsWith('github.io') ? GITHUB_PAGES_API_BASE : ''}/api/submit`;
 
 function serializeForm(form) {
   const formData = new FormData(form);

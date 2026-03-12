@@ -18,6 +18,14 @@ Landing page statica con form collegati a una Vercel Function.
 4. non serve output directory
 5. pubblica il progetto
 
+## Frontend via GitHub Pages
+
+La repository contiene anche un workflow GitHub Actions per pubblicare il frontend statico su GitHub Pages.
+
+URL atteso dopo l'attivazione di Pages:
+
+- `https://dwebcoding.github.io/Landing-SPLit8/`
+
 ## Variabili ambiente opzionali
 
 - `FORM_WEBHOOK_URL`: URL webhook per inoltrare automaticamente i lead a Slack, Make, Zapier o altro backend
