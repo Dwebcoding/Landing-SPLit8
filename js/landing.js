@@ -1,3 +1,5 @@
+const FORM_ENDPOINT = '/api/submit';
+
 function serializeForm(form) {
   const formData = new FormData(form);
   return Object.fromEntries(
@@ -44,7 +46,38 @@ function clearFormState(form) {
   }
 }
 
-function bindForm(formId, logLabel, successMessage) {
+function setStatus(status, message, state) {
+  if (!status) {
+    return;
+  }
+
+  status.textContent = message;
+  status.classList.remove('is-error', 'is-success');
+
+  if (state) {
+    status.classList.add(state);
+  }
+}
+
+async function submitForm(payload) {
+  const response = await fetch(FORM_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(result.error || 'Invio non riuscito.');
+  }
+
+  return result;
+}
+
+function bindForm(formId, formType, successMessage) {
   const form = document.getElementById(formId);
   if (!form) {
     return;
@@ -69,37 +102,48 @@ function bindForm(formId, logLabel, successMessage) {
     });
   });
 
-  form.addEventListener('submit', (event) => {
+  form.addEventListener('submit', async (event) => {
     event.preventDefault();
 
     const isFormValid = fields.every((field) => validateField(field));
     if (!isFormValid) {
-      if (status) {
-        status.textContent = 'Controlla i campi evidenziati e riprova.';
-        status.classList.remove('is-success');
-        status.classList.add('is-error');
-      }
+      setStatus(status, 'Controlla i campi evidenziati e riprova.', 'is-error');
       return;
     }
 
-    const payload = serializeForm(form);
-    console.log(logLabel, payload);
+    const payload = {
+      formType,
+      submittedAt: new Date().toISOString(),
+      data: serializeForm(form)
+    };
 
-    if (status) {
-      status.textContent = successMessage;
-      status.classList.remove('is-error');
-      status.classList.add('is-success');
+    const submitButton = form.querySelector('button[type="submit"]');
+
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.dataset.originalLabel = submitButton.textContent;
+      submitButton.textContent = 'Invio in corso...';
     }
 
-    form.reset();
-    clearFormState(form);
+    setStatus(status, 'Invio in corso...', '');
 
-    if (status) {
-      status.textContent = successMessage;
-      status.classList.add('is-success');
+    try {
+      const result = await submitForm(payload);
+      console.log('Form inviato:', result);
+
+      form.reset();
+      clearFormState(form);
+      setStatus(status, successMessage, 'is-success');
+    } catch (error) {
+      setStatus(status, error.message || 'Errore durante l\'invio.', 'is-error');
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = submitButton.dataset.originalLabel || submitButton.textContent;
+      }
     }
   });
 }
 
-bindForm('studioForm', 'Richiesta studio:', 'Richiesta raccolta correttamente. Controlla la console per i dati.');
-bindForm('tecnicoForm', 'Candidatura tecnico:', 'Candidatura raccolta correttamente. Controlla la console per i dati.');
+bindForm('studioForm', 'studio', 'Richiesta inviata correttamente. Ti contatteremo a breve.');
+bindForm('tecnicoForm', 'tecnico', 'Candidatura inviata correttamente. Ti contatteremo a breve.');

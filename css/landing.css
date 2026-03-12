@@ -105,6 +105,10 @@ body {
 }
 .navbar__link:hover { color: var(--accent); }
 .navbar__actions { display: flex; align-items: center; gap: var(--space-lg); }
+.btn--repo {
+	padding-inline: 16px;
+	font-size: 0.9rem;
+}
 
 /* ===========================
 	 HERO SECTION
@@ -182,6 +186,12 @@ body {
 	.contact-block .actions {
 		grid-auto-flow: row;
 		justify-items: start;
+	}
+	.navbar__actions {
+		gap: 10px;
+	}
+	.btn--repo {
+		display: none;
 	}
 }
 
